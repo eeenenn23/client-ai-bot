@@ -3,7 +3,8 @@ import asyncio
 import logging
 import aiohttp
 
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message
 from aiogram.filters import Command
 
 logging.basicConfig(level=logging.INFO)
@@ -11,8 +12,8 @@ logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_TOKEN = os.getenv("GROQ_TOKEN")
 
-bot = Bot(BOT_TOKEN)
-dp = Dispatcher(bot=bot)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 
 SYSTEM_PROMPT = """
 Ты автоответчик для клиентов.
@@ -21,11 +22,11 @@ SYSTEM_PROMPT = """
 """
 
 @dp.message(Command("start"))
-async def start(m: types.Message):
-    await m.answer("👋 Здравствуйте! Напишите ваш вопрос.")
+async def start(message: Message):
+    await message.answer("👋 Здравствуйте! Напишите ваш вопрос.")
 
 @dp.message()
-async def chat(m: types.Message):
+async def chat(message: Message):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -38,21 +39,21 @@ async def chat(m: types.Message):
                     "model": "llama-3.1-8b-instant",
                     "messages": [
                         {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": m.text}
+                        {"role": "user", "content": message.text}
                     ],
                     "max_tokens": 150
                 }
             ) as r:
                 data = await r.json()
 
-        await m.answer(data["choices"][0]["message"]["content"])
+        await message.answer(data["choices"][0]["message"]["content"])
 
     except Exception as e:
-        logging.error(e)
-        await m.answer("⚠️ Временно не могу ответить.")
+        logging.exception(e)
+        await message.answer("⚠️ Временно не могу ответить.")
 
 async def main():
-    await dp.start_polling()
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
